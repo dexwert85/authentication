@@ -47,13 +47,20 @@ public class ForgotPasswordActivity extends AppCompatActivity {
                 return;
             }
 
+            // Disable button to prevent double-clicking
+            btnResetPassword.setEnabled(false);
+
             mAuth.sendPasswordResetEmail(email)
                     .addOnCompleteListener(task -> {
+                        // Re-enable the button
+                        btnResetPassword.setEnabled(true);
+
                         if (task.isSuccessful()) {
-                            Toast.makeText(ForgotPasswordActivity.this, "Password reset email sent", Toast.LENGTH_LONG).show();
-                            finish();
+                            Toast.makeText(ForgotPasswordActivity.this, "Password reset email sent! Check your inbox.", Toast.LENGTH_LONG).show();
                         } else {
-                            Toast.makeText(ForgotPasswordActivity.this, "Error: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                            // Show the exact exception message from Firebase
+                            String errorMessage = task.getException() != null ? task.getException().getMessage() : "Unknown error";
+                            Toast.makeText(ForgotPasswordActivity.this, "Failed: " + errorMessage, Toast.LENGTH_LONG).show();
                         }
                     });
         });
