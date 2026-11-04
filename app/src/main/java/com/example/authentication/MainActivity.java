@@ -2,6 +2,7 @@ package com.example.authentication;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -17,6 +18,8 @@ import com.google.firebase.auth.FirebaseUser;
 public class MainActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
+    private Button btnLogout, btnProfile;
+    TextView tvWelcome;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,8 +44,9 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        TextView tvWelcome = findViewById(R.id.tvWelcome);
-        Button btnLogout = findViewById(R.id.btnLogout);
+        tvWelcome = findViewById(R.id.tvWelcome);
+        btnLogout = findViewById(R.id.btnLogout);
+        btnProfile = findViewById(R.id.btnProfile);
 
         tvWelcome.setText("Welcome, " + currentUser.getEmail());
 
@@ -50,6 +54,14 @@ public class MainActivity extends AppCompatActivity {
             mAuth.signOut();
             startActivity(new Intent(MainActivity.this, LoginActivity.class));
             finish();
+        });
+
+        btnProfile.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startActivity(new Intent(MainActivity.this, ProfileActivity.class));
+                finish();
+            }
         });
     }
 }

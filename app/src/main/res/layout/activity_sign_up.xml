@@ -5,6 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="24dp"
     tools:context=".SignUpActivity">
 
         <TextView
@@ -14,22 +15,34 @@
             android:text="Create Account"
             android:textSize="28sp"
             android:textStyle="bold"
-            app:layout_constraintBottom_toTopOf="@id/etSignUpEmail"
+            app:layout_constraintBottom_toTopOf="@id/etSignUpName"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_chainStyle="packed" />
 
         <EditText
-            android:id="@+id/etSignUpEmail"
+            android:id="@+id/etSignUpName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
+            android:hint="User Name (Optional)"
+            android:inputType="textPersonName"
+            app:layout_constraintBottom_toTopOf="@id/etSignUpEmail"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvSignUpTitle" />
+
+        <EditText
+            android:id="@+id/etSignUpEmail"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:hint="Email"
             android:inputType="textEmailAddress"
             app:layout_constraintBottom_toTopOf="@id/etSignUpPassword"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvSignUpTitle" />
+            app:layout_constraintTop_toBottomOf="@id/etSignUpName" />
 
         <EditText
             android:id="@+id/etSignUpPassword"
@@ -38,10 +51,22 @@
             android:layout_marginTop="16dp"
             android:hint="Password (min 6 characters)"
             android:inputType="textPassword"
-            app:layout_constraintBottom_toTopOf="@id/btnSignUp"
+            app:layout_constraintBottom_toTopOf="@id/etConfirmPassword"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/etSignUpEmail" />
+
+        <EditText
+            android:id="@+id/etConfirmPassword"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="Confirm Password"
+            android:inputType="textPassword"
+            app:layout_constraintBottom_toTopOf="@id/btnSignUp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/etSignUpPassword" />
 
         <Button
             android:id="@+id/btnSignUp"
@@ -52,7 +77,7 @@
             app:layout_constraintBottom_toTopOf="@id/tvGoToLogin"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/etSignUpPassword" />
+            app:layout_constraintTop_toBottomOf="@id/etConfirmPassword" />
 
         <TextView
             android:id="@+id/tvGoToLogin"
