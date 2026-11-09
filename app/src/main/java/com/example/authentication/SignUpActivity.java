@@ -16,10 +16,15 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SignUpActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
     private EditText etSignUpName, etSignUpEmail, etSignUpPassword, etConfirmPassword;
     private Button btnSignUp;
     private TextView tvGoToLogin;
@@ -37,6 +42,7 @@ public class SignUpActivity extends AppCompatActivity {
         });
 
         mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
         etSignUpName = findViewById(R.id.etSignUpName);
         etSignUpEmail = findViewById(R.id.etSignUpEmail);
@@ -67,29 +73,39 @@ public class SignUpActivity extends AppCompatActivity {
             }
 
             btnSignUp.setEnabled(false);
+            btnSignUp.setText("Signing Up...");
 
             mAuth.createUserWithEmailAndPassword(email, password)
                     .addOnCompleteListener(this, task -> {
                         if (task.isSuccessful()) {
                             FirebaseUser user = mAuth.getCurrentUser();
 
-                            if (user != null && !name.isEmpty()) {
+                            if (user != null) {
+                                // 1. Fire-and-forget Profile Update
                                 UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
                                         .setDisplayName(name)
                                         .build();
+                                user.updateProfile(profileUpdates);
 
-                                user.updateProfile(profileUpdates)
-                                        .addOnCompleteListener(profileTask -> {
-                                            btnSignUp.setEnabled(true);
-                                            navigateToMain();
-                                        });
-                            } else {
-                                btnSignUp.setEnabled(true);
+                                // 2. Fire-and-forget Firestore Update
+                                Map<String, Object> userData = new HashMap<>();
+                                userData.put("name", name);
+                                userData.put("email", email);
+                                userData.put("phone", "");
+                                userData.put("address", "");
+                                userData.put("profileImageBase64", "");
+
+                                db.collection("users").document(user.getUid()).set(userData);
+
+                                // 3. Allow the user to enter the app immediately!
+                                resetSignUpButton();
                                 navigateToMain();
                             }
                         } else {
-                            btnSignUp.setEnabled(true);
-                            Toast.makeText(SignUpActivity.this, "Sign up failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                            // If Auth fails, we MUST reset the button so they can try again
+                            resetSignUpButton();
+                            String errorMsg = task.getException() != null ? task.getException().getMessage() : "Unknown error";
+                            Toast.makeText(SignUpActivity.this, "Sign up failed: " + errorMsg, Toast.LENGTH_LONG).show();
                         }
                     });
         });
@@ -100,9 +116,14 @@ public class SignUpActivity extends AppCompatActivity {
         });
     }
 
+    private void resetSignUpButton() {
+        btnSignUp.setEnabled(true);
+        btnSignUp.setText("Sign Up");
+    }
+
     private void navigateToMain() {
         Toast.makeText(SignUpActivity.this, "Account created successfully", Toast.LENGTH_SHORT).show();
         startActivity(new Intent(SignUpActivity.this, MainActivity.class));
-        finish();
+        finish(); // Destroy SignUpActivity so they can't hit back to it
     }
 }

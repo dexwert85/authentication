@@ -1,11 +1,11 @@
 package com.example.authentication;
 
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -26,17 +26,18 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ProfileActivity extends AppCompatActivity {
-
-    private static final String PREFS_NAME = "UserProfilePrefs";
-    private static final String KEY_PHONE = "phone";
-    private static final String KEY_ADDRESS = "address";
-    private static final String KEY_IMAGE_URI = "image_uri";
 
     private ImageView imgProfile;
     private TextView tvProfileName, tvProfileEmail, tvProfilePhone, tvProfileAddress;
@@ -45,21 +46,23 @@ public class ProfileActivity extends AppCompatActivity {
     private LinearLayout layoutEditButtons;
 
     private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
     private boolean isEditMode = false;
     private Uri selectedImageUri = null;
+    private String currentBase64Image = null;
 
-    // Gallery Launcher
+    // Gallery Launcher (Shifted to background thread to prevent UI freezing)
     private final ActivityResultLauncher<String> galleryLauncher =
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
                 if (uri != null) {
-                    try {
-                        getContentResolver().takePersistableUriPermission(
-                                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    selectedImageUri = uri;
                     imgProfile.setImageURI(uri);
+                    selectedImageUri = uri;
+                    Toast.makeText(this, "Processing image...", Toast.LENGTH_SHORT).show();
+
+                    new Thread(() -> {
+                        String base64 = convertUriToBase64(uri);
+                        runOnUiThread(() -> currentBase64Image = base64);
+                    }).start();
                 }
             });
 
@@ -68,7 +71,12 @@ public class ProfileActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.TakePicturePreview(), bitmap -> {
                 if (bitmap != null) {
                     imgProfile.setImageBitmap(bitmap);
-                    selectedImageUri = saveBitmapToCache(bitmap);
+
+                    new Thread(() -> {
+                        selectedImageUri = saveBitmapToCache(bitmap);
+                        String base64 = convertBitmapToBase64(bitmap);
+                        runOnUiThread(() -> currentBase64Image = base64);
+                    }).start();
                 }
             });
 
@@ -85,6 +93,7 @@ public class ProfileActivity extends AppCompatActivity {
         });
 
         mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
         imgProfile = findViewById(R.id.imgProfile);
         tvProfileName = findViewById(R.id.tvProfileName);
@@ -181,66 +190,160 @@ public class ProfileActivity extends AppCompatActivity {
             return;
         }
 
-        // Save phone, address, and image URI locally
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(KEY_PHONE, newPhone);
-        editor.putString(KEY_ADDRESS, newAddress);
-        if (selectedImageUri != null) {
-            editor.putString(KEY_IMAGE_URI, selectedImageUri.toString());
-        }
-        editor.apply();
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user == null) return;
 
+        btnSave.setEnabled(false);
+        btnSave.setText("Saving...");
+
+        // 1. Send data to Firestore (Fire-and-forget)
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("name", newName);
+        userData.put("email", newEmail);
+        userData.put("phone", newPhone);
+        userData.put("address", newAddress);
+        if (currentBase64Image != null) {
+            userData.put("profileImageBase64", currentBase64Image);
+        }
+        db.collection("users").document(user.getUid()).set(userData, SetOptions.merge());
+
+        // 2. Update Firebase Auth Profile (Fire-and-forget)
+        UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
+                .setDisplayName(newName)
+                .build();
+        user.updateProfile(profileUpdates);
+
+        // 3. Update Auth Email ONLY if it changed
+        if (!newEmail.equals(user.getEmail())) {
+            user.updateEmail(newEmail).addOnFailureListener(e -> {
+                // Firebase requires a "recent login" to change emails.
+                // If it fails, we show a toast, but we don't freeze the app.
+                Toast.makeText(ProfileActivity.this, "Note: To change login email, please sign out and sign back in first.", Toast.LENGTH_LONG).show();
+            });
+        }
+
+        // 4. Update the UI immediately so the app feels fast and snappy
         tvProfileName.setText(newName.isEmpty() ? "User Name" : newName);
         tvProfileEmail.setText(newEmail);
         tvProfilePhone.setText(newPhone.isEmpty() ? "Not provided" : newPhone);
         tvProfileAddress.setText(newAddress.isEmpty() ? "Not provided" : newAddress);
 
-        FirebaseUser user = mAuth.getCurrentUser();
-        if (user != null) {
-            UserProfileChangeRequest.Builder builder = new UserProfileChangeRequest.Builder();
-
-            if (!newName.isEmpty()) {
-                builder.setDisplayName(newName);
-            }
-            if (selectedImageUri != null) {
-                builder.setPhotoUri(selectedImageUri);
-            }
-
-            user.updateProfile(builder.build());
-
-            if (!newEmail.equals(user.getEmail())) {
-                user.updateEmail(newEmail)
-                        .addOnFailureListener(e -> Toast.makeText(ProfileActivity.this, "Failed to update email: " + e.getMessage(), Toast.LENGTH_LONG).show());
-            }
-        }
-
-        Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show();
+        Toast.makeText(ProfileActivity.this, "Profile saved", Toast.LENGTH_SHORT).show();
+        resetSaveButton();
         setEditMode(false);
+    }
+
+    private void resetSaveButton() {
+        btnSave.setEnabled(true);
+        btnSave.setText("Save");
     }
 
     private void loadUserData() {
         FirebaseUser user = mAuth.getCurrentUser();
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (user == null) return;
 
-        String phone = prefs.getString(KEY_PHONE, "");
-        String address = prefs.getString(KEY_ADDRESS, "");
-        String savedUriString = prefs.getString(KEY_IMAGE_URI, null);
+        user.reload().addOnCompleteListener(reloadTask -> {
+            db.collection("users").document(user.getUid())
+                    .get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        if (documentSnapshot.exists()) {
+                            String name = documentSnapshot.getString("name");
+                            String email = documentSnapshot.getString("email");
+                            String phone = documentSnapshot.getString("phone");
+                            String address = documentSnapshot.getString("address");
+                            String base64Image = documentSnapshot.getString("profileImageBase64");
 
-        if (user != null) {
-            String name = user.getDisplayName();
-            String email = user.getEmail();
+                            String authName = user.getDisplayName();
+                            String authEmail = user.getEmail();
 
-            tvProfileName.setText(name != null && !name.isEmpty() ? name : "User Name");
-            tvProfileEmail.setText(email != null ? email : "");
+                            tvProfileName.setText(name != null && !name.isEmpty() ? name : (authName != null && !authName.isEmpty() ? authName : "User Name"));
+                            tvProfileEmail.setText(email != null && !email.isEmpty() ? email : (authEmail != null ? authEmail : ""));
+                            tvProfilePhone.setText(phone != null && !phone.isEmpty() ? phone : "Not provided");
+                            tvProfileAddress.setText(address != null && !address.isEmpty() ? address : "Not provided");
+
+                            // Load base64 image on a background thread so it doesn't freeze the app on launch
+                            if (base64Image != null && !base64Image.isEmpty()) {
+                                currentBase64Image = base64Image;
+                                new Thread(() -> {
+                                    Bitmap bitmap = decodeBase64ToBitmap(base64Image);
+                                    if (bitmap != null) {
+                                        runOnUiThread(() -> imgProfile.setImageBitmap(bitmap));
+                                    }
+                                }).start();
+                            }
+                        } else {
+                            tvProfileName.setText(user.getDisplayName() != null && !user.getDisplayName().isEmpty() ? user.getDisplayName() : "User Name");
+                            tvProfileEmail.setText(user.getEmail() != null ? user.getEmail() : "");
+                            tvProfilePhone.setText("Not provided");
+                            tvProfileAddress.setText("Not provided");
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(ProfileActivity.this, "Failed to load data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+        });
+    }
+
+    // Safely reads image boundaries first to prevent Out Of Memory crashes/freezes
+    private String convertUriToBase64(Uri uri) {
+        try {
+            InputStream input = getContentResolver().openInputStream(uri);
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(input, null, options);
+            if (input != null) input.close();
+
+            // Calculate shrink ratio
+            int maxDim = 500;
+            int inSampleSize = 1;
+            if (options.outHeight > maxDim || options.outWidth > maxDim) {
+                final int halfHeight = options.outHeight / 2;
+                final int halfWidth = options.outWidth / 2;
+                while ((halfHeight / inSampleSize) >= maxDim && (halfWidth / inSampleSize) >= maxDim) {
+                    inSampleSize *= 2;
+                }
+            }
+
+            // Decode safely
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = inSampleSize;
+            input = getContentResolver().openInputStream(uri);
+            Bitmap bitmap = BitmapFactory.decodeStream(input, null, options);
+            if (input != null) input.close();
+
+            return convertBitmapToBase64(bitmap);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private String convertBitmapToBase64(Bitmap bitmap) {
+        if (bitmap == null) return null;
+
+        int maxDimension = 500;
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        float ratio = Math.min((float) maxDimension / width, (float) maxDimension / height);
+
+        Bitmap scaledBitmap = bitmap;
+        if (ratio < 1.0f) {
+            scaledBitmap = Bitmap.createScaledBitmap(bitmap, (int) (width * ratio), (int) (height * ratio), true);
         }
 
-        tvProfilePhone.setText(!phone.isEmpty() ? phone : "Not provided");
-        tvProfileAddress.setText(!address.isEmpty() ? address : "Not provided");
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream);
+        byte[] byteArray = byteArrayOutputStream.toByteArray();
+        return Base64.encodeToString(byteArray, Base64.DEFAULT);
+    }
 
-        if (savedUriString != null) {
-            selectedImageUri = Uri.parse(savedUriString);
-            imgProfile.setImageURI(selectedImageUri);
+    private Bitmap decodeBase64ToBitmap(String base64Str) {
+        try {
+            byte[] decodedBytes = Base64.decode(base64Str, Base64.DEFAULT);
+            return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 

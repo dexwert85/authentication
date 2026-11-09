@@ -46,7 +46,9 @@ public class MainActivity extends AppCompatActivity {
         btnLogout = findViewById(R.id.btnLogout);
         btnProfile = findViewById(R.id.btnProfile);
 
-        tvWelcome.setText("Welcome, " + currentUser.getEmail());
+        String displayName = currentUser.getDisplayName();
+        String welcomeText = (displayName != null && !displayName.isEmpty()) ? displayName : currentUser.getEmail();
+        tvWelcome.setText("Welcome, " + welcomeText);
 
         btnLogout.setOnClickListener(v -> {
             mAuth.signOut();
@@ -55,7 +57,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnProfile.setOnClickListener(v -> {
-            // Do NOT call finish() here, so MainActivity remains on the back stack
             startActivity(new Intent(MainActivity.this, ProfileActivity.class));
         });
     }
