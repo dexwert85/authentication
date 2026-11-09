@@ -2,7 +2,6 @@ package com.example.authentication;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -19,7 +18,7 @@ public class MainActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private Button btnLogout, btnProfile;
-    TextView tvWelcome;
+    private TextView tvWelcome;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
 
-        // Redirect to Login if user is not signed in
         if (currentUser == null) {
             startActivity(new Intent(MainActivity.this, LoginActivity.class));
             finish();
@@ -56,12 +54,9 @@ public class MainActivity extends AppCompatActivity {
             finish();
         });
 
-        btnProfile.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                startActivity(new Intent(MainActivity.this, ProfileActivity.class));
-                finish();
-            }
+        btnProfile.setOnClickListener(v -> {
+            // Do NOT call finish() here, so MainActivity remains on the back stack
+            startActivity(new Intent(MainActivity.this, ProfileActivity.class));
         });
     }
 }

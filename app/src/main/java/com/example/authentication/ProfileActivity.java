@@ -1,6 +1,10 @@
 package com.example.authentication;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -23,7 +27,16 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
 public class ProfileActivity extends AppCompatActivity {
+
+    private static final String PREFS_NAME = "UserProfilePrefs";
+    private static final String KEY_PHONE = "phone";
+    private static final String KEY_ADDRESS = "address";
+    private static final String KEY_IMAGE_URI = "image_uri";
 
     private ImageView imgProfile;
     private TextView tvProfileName, tvProfileEmail, tvProfilePhone, tvProfileAddress;
@@ -33,11 +46,19 @@ public class ProfileActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private boolean isEditMode = false;
+    private Uri selectedImageUri = null;
 
-    // Gallery Picker Launcher
+    // Gallery Launcher
     private final ActivityResultLauncher<String> galleryLauncher =
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
                 if (uri != null) {
+                    try {
+                        getContentResolver().takePersistableUriPermission(
+                                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    selectedImageUri = uri;
                     imgProfile.setImageURI(uri);
                 }
             });
@@ -47,6 +68,7 @@ public class ProfileActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.TakePicturePreview(), bitmap -> {
                 if (bitmap != null) {
                     imgProfile.setImageBitmap(bitmap);
+                    selectedImageUri = saveBitmapToCache(bitmap);
                 }
             });
 
@@ -83,7 +105,6 @@ public class ProfileActivity extends AppCompatActivity {
 
         loadUserData();
 
-        // Image Click Listener
         imgProfile.setOnClickListener(v -> {
             if (isEditMode) {
                 showImageSelectionDialog();
@@ -100,7 +121,6 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void showImageSelectionDialog() {
         String[] options = {"Take Photo", "Choose from Gallery"};
-
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Profile Picture");
         builder.setItems(options, (dialog, which) -> {
@@ -161,6 +181,16 @@ public class ProfileActivity extends AppCompatActivity {
             return;
         }
 
+        // Save phone, address, and image URI locally
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_PHONE, newPhone);
+        editor.putString(KEY_ADDRESS, newAddress);
+        if (selectedImageUri != null) {
+            editor.putString(KEY_IMAGE_URI, selectedImageUri.toString());
+        }
+        editor.apply();
+
         tvProfileName.setText(newName.isEmpty() ? "User Name" : newName);
         tvProfileEmail.setText(newEmail);
         tvProfilePhone.setText(newPhone.isEmpty() ? "Not provided" : newPhone);
@@ -168,12 +198,16 @@ public class ProfileActivity extends AppCompatActivity {
 
         FirebaseUser user = mAuth.getCurrentUser();
         if (user != null) {
+            UserProfileChangeRequest.Builder builder = new UserProfileChangeRequest.Builder();
+
             if (!newName.isEmpty()) {
-                UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
-                        .setDisplayName(newName)
-                        .build();
-                user.updateProfile(profileUpdates);
+                builder.setDisplayName(newName);
             }
+            if (selectedImageUri != null) {
+                builder.setPhotoUri(selectedImageUri);
+            }
+
+            user.updateProfile(builder.build());
 
             if (!newEmail.equals(user.getEmail())) {
                 user.updateEmail(newEmail)
@@ -187,14 +221,38 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void loadUserData() {
         FirebaseUser user = mAuth.getCurrentUser();
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+
+        String phone = prefs.getString(KEY_PHONE, "");
+        String address = prefs.getString(KEY_ADDRESS, "");
+        String savedUriString = prefs.getString(KEY_IMAGE_URI, null);
+
         if (user != null) {
             String name = user.getDisplayName();
             String email = user.getEmail();
 
             tvProfileName.setText(name != null && !name.isEmpty() ? name : "User Name");
             tvProfileEmail.setText(email != null ? email : "");
-            tvProfilePhone.setText("Not provided");
-            tvProfileAddress.setText("Not provided");
         }
+
+        tvProfilePhone.setText(!phone.isEmpty() ? phone : "Not provided");
+        tvProfileAddress.setText(!address.isEmpty() ? address : "Not provided");
+
+        if (savedUriString != null) {
+            selectedImageUri = Uri.parse(savedUriString);
+            imgProfile.setImageURI(selectedImageUri);
+        }
+    }
+
+    private Uri saveBitmapToCache(Bitmap bitmap) {
+        File cachePath = new File(getCacheDir(), "images");
+        cachePath.mkdirs();
+        File file = new File(cachePath, "profile_temp.png");
+        try (FileOutputStream stream = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return Uri.fromFile(file);
     }
 }
