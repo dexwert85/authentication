@@ -38,13 +38,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ProfileActivity extends AppCompatActivity {
-
     private ImageView imgProfile;
     private TextView tvProfileName, tvProfileEmail, tvProfilePhone, tvProfileAddress;
     private EditText etProfileName, etProfileEmail, etProfilePhone, etProfileAddress;
     private Button btnEdit, btnBack, btnSave, btnCancel;
     private LinearLayout layoutEditButtons;
-
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private boolean isEditMode = false;

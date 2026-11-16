@@ -15,10 +15,16 @@
         android:theme="@style/Theme.Authentication"
         tools:targetApi="31">
         <activity
-            android:name=".ProfileActivity"
+            android:name=".TransactionActivity"
             android:exported="false" />
         <activity
-            android:name=".ForgetPasswordActivity"
+            android:name=".ClientDetailsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ClientListActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ProfileActivity"
             android:exported="false" />
         <activity
             android:name=".ForgotPasswordActivity"

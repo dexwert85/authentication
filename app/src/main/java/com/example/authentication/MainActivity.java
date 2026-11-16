@@ -17,7 +17,7 @@ import com.google.firebase.auth.FirebaseUser;
 public class MainActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
-    private Button btnLogout, btnProfile;
+    private Button btnLogout, btnProfile, btnClients;
     private TextView tvWelcome;
 
     @Override
@@ -45,19 +45,24 @@ public class MainActivity extends AppCompatActivity {
         tvWelcome = findViewById(R.id.tvWelcome);
         btnLogout = findViewById(R.id.btnLogout);
         btnProfile = findViewById(R.id.btnProfile);
+        btnClients = findViewById(R.id.btnClients);
 
         String displayName = currentUser.getDisplayName();
         String welcomeText = (displayName != null && !displayName.isEmpty()) ? displayName : currentUser.getEmail();
         tvWelcome.setText("Welcome, " + welcomeText);
 
-        btnLogout.setOnClickListener(v -> {
-            mAuth.signOut();
-            startActivity(new Intent(MainActivity.this, LoginActivity.class));
-            finish();
+        btnClients.setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, ClientListActivity.class));
         });
 
         btnProfile.setOnClickListener(v -> {
             startActivity(new Intent(MainActivity.this, ProfileActivity.class));
+        });
+
+        btnLogout.setOnClickListener(v -> {
+            mAuth.signOut();
+            startActivity(new Intent(MainActivity.this, LoginActivity.class));
+            finish();
         });
     }
 }
