@@ -26,7 +26,7 @@ import java.util.List;
 public class ClientListActivity extends AppCompatActivity {
 
     private ListView lvClients;
-    private Button btnAddClient;
+    private Button btnAddClient, btnBackClients;
     private ClientListAdapter adapter;
     private List<Client> clientList;
     private FirebaseFirestore db;
@@ -46,12 +46,12 @@ public class ClientListActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         lvClients = findViewById(R.id.lvClients);
         btnAddClient = findViewById(R.id.btnAddClient);
+        btnBackClients = findViewById(R.id.btnBackClients);
 
         clientList = new ArrayList<>();
         adapter = new ClientListAdapter(this, clientList);
         lvClients.setAdapter(adapter);
 
-        // Open client details when a row is pressed
         lvClients.setOnItemClickListener((parent, view, position, id) -> {
             Client selectedClient = clientList.get(position);
             Intent intent = new Intent(ClientListActivity.this, ClientDetailsActivity.class);
@@ -62,12 +62,13 @@ public class ClientListActivity extends AppCompatActivity {
         });
 
         btnAddClient.setOnClickListener(v -> showAddClientDialog());
+        btnBackClients.setOnClickListener(v -> finish());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        loadClients(); // Refresh list every time we return to this screen
+        loadClients();
     }
 
     private void loadClients() {
@@ -80,7 +81,6 @@ public class ClientListActivity extends AppCompatActivity {
                         clientList.add(client);
                     }
 
-                    // Sort numerically by ID (0, 1, 2, ... 10)
                     Collections.sort(clientList, (c1, c2) -> {
                         try {
                             return Integer.compare(Integer.parseInt(c1.getId()), Integer.parseInt(c2.getId()));
@@ -138,7 +138,6 @@ public class ClientListActivity extends AppCompatActivity {
     }
 
     private void createClientWithAutoId(String name, double balance) {
-        // Determine next sequential ID: 0, 1, 2, ...
         int nextIdInt = 0;
         for (Client c : clientList) {
             try {

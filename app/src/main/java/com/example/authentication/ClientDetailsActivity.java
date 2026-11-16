@@ -20,7 +20,7 @@ import java.util.Locale;
 public class ClientDetailsActivity extends AppCompatActivity {
 
     private TextView tvDetailName, tvDetailBalance;
-    private Button btnChange;
+    private Button btnChange, btnBackDetail;
     private FirebaseFirestore db;
 
     private String clientId;
@@ -43,6 +43,7 @@ public class ClientDetailsActivity extends AppCompatActivity {
         tvDetailName = findViewById(R.id.tvDetailName);
         tvDetailBalance = findViewById(R.id.tvDetailBalance);
         btnChange = findViewById(R.id.btnChange);
+        btnBackDetail = findViewById(R.id.btnBackDetail);
 
         clientId = getIntent().getStringExtra("CLIENT_ID");
         clientName = getIntent().getStringExtra("CLIENT_NAME");
@@ -57,6 +58,8 @@ public class ClientDetailsActivity extends AppCompatActivity {
             intent.putExtra("CLIENT_BALANCE", currentBalance);
             startActivity(intent);
         });
+
+        btnBackDetail.setOnClickListener(v -> finish());
     }
 
     @Override
