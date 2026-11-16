@@ -12,6 +12,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -22,6 +24,7 @@ public class TransactionActivity extends AppCompatActivity {
     private EditText etAmount;
     private Button btnDeposit, btnWithdraw;
     private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     private String clientId;
     private String clientName;
@@ -39,6 +42,7 @@ public class TransactionActivity extends AppCompatActivity {
             return insets;
         });
 
+        mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         etAmount = findViewById(R.id.etAmount);
         btnDeposit = findViewById(R.id.btnDeposit);
@@ -53,6 +57,9 @@ public class TransactionActivity extends AppCompatActivity {
     }
 
     private void handleTransaction(boolean isDeposit) {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user == null) return;
+
         String amountStr = etAmount.getText().toString().trim();
         if (amountStr.isEmpty()) {
             Toast.makeText(this, "Please enter an amount", Toast.LENGTH_SHORT).show();
@@ -73,7 +80,7 @@ public class TransactionActivity extends AppCompatActivity {
         }
 
         double delta = isDeposit ? amount : -amount;
-        double newBalance = currentBalance + delta; // Allowed to go negative
+        double newBalance = currentBalance + delta;
         String typeLabel = isDeposit ? "Deposit" : "Withdrawal";
 
         new AlertDialog.Builder(this)
@@ -85,11 +92,12 @@ public class TransactionActivity extends AppCompatActivity {
                     btnDeposit.setEnabled(false);
                     btnWithdraw.setEnabled(false);
 
-                    db.collection("clients").document(clientId)
+                    db.collection("users").document(user.getUid())
+                            .collection("clients").document(clientId)
                             .update("balance", FieldValue.increment(delta))
                             .addOnSuccessListener(aVoid -> {
                                 Toast.makeText(this, typeLabel + " saved!", Toast.LENGTH_SHORT).show();
-                                finish(); // Returns to ClientDetailActivity, which refreshes automatically
+                                finish();
                             })
                             .addOnFailureListener(e -> {
                                 btnDeposit.setEnabled(true);

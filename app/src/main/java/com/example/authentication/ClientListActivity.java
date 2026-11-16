@@ -16,6 +16,9 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -30,6 +33,7 @@ public class ClientListActivity extends AppCompatActivity {
     private ClientListAdapter adapter;
     private List<Client> clientList;
     private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +46,12 @@ public class ClientListActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        mAuth = FirebaseAuth.getInstance();
+        if (mAuth.getCurrentUser() == null) {
+            finish();
+            return;
+        }
 
         db = FirebaseFirestore.getInstance();
         lvClients = findViewById(R.id.lvClients);
@@ -65,14 +75,21 @@ public class ClientListActivity extends AppCompatActivity {
         btnBackClients.setOnClickListener(v -> finish());
     }
 
+    private CollectionReference getClientsCollection() {
+        FirebaseUser user = mAuth.getCurrentUser();
+        return db.collection("users").document(user.getUid()).collection("clients");
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
-        loadClients();
+        if (mAuth.getCurrentUser() != null) {
+            loadClients();
+        }
     }
 
     private void loadClients() {
-        db.collection("clients")
+        getClientsCollection()
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     clientList.clear();
@@ -151,7 +168,7 @@ public class ClientListActivity extends AppCompatActivity {
         String autoId = String.valueOf(nextIdInt);
         Client newClient = new Client(autoId, name, balance);
 
-        db.collection("clients").document(autoId)
+        getClientsCollection().document(autoId)
                 .set(newClient)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "Client #" + autoId + " added", Toast.LENGTH_SHORT).show();

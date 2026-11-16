@@ -13,6 +13,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.Locale;
@@ -22,6 +24,7 @@ public class ClientDetailsActivity extends AppCompatActivity {
     private TextView tvDetailName, tvDetailBalance;
     private Button btnChange, btnBackDetail;
     private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     private String clientId;
     private String clientName;
@@ -39,6 +42,7 @@ public class ClientDetailsActivity extends AppCompatActivity {
             return insets;
         });
 
+        mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         tvDetailName = findViewById(R.id.tvDetailName);
         tvDetailBalance = findViewById(R.id.tvDetailBalance);
@@ -65,8 +69,10 @@ public class ClientDetailsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (clientId != null) {
-            db.collection("clients").document(clientId)
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null && clientId != null) {
+            db.collection("users").document(user.getUid())
+                    .collection("clients").document(clientId)
                     .get()
                     .addOnSuccessListener(doc -> {
                         if (doc.exists()) {
