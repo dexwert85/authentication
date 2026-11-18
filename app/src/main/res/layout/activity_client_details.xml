@@ -33,6 +33,16 @@
         android:paddingHorizontal="32dp" />
 
     <Button
+        android:id="@+id/btnRemoveClient"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Remove Client"
+        android:backgroundTint="#D32F2F"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="12dp"
+        android:paddingHorizontal="32dp" />
+
+    <Button
         android:id="@+id/btnBackDetail"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -8,6 +8,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -22,7 +23,7 @@ import java.util.Locale;
 public class ClientDetailsActivity extends AppCompatActivity {
 
     private TextView tvDetailName, tvDetailBalance;
-    private Button btnChange, btnBackDetail;
+    private Button btnChange, btnRemoveClient, btnBackDetail;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
@@ -47,6 +48,7 @@ public class ClientDetailsActivity extends AppCompatActivity {
         tvDetailName = findViewById(R.id.tvDetailName);
         tvDetailBalance = findViewById(R.id.tvDetailBalance);
         btnChange = findViewById(R.id.btnChange);
+        btnRemoveClient = findViewById(R.id.btnRemoveClient);
         btnBackDetail = findViewById(R.id.btnBackDetail);
 
         clientId = getIntent().getStringExtra("CLIENT_ID");
@@ -63,7 +65,41 @@ public class ClientDetailsActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        btnRemoveClient.setOnClickListener(v -> handleRemoveClient());
+
         btnBackDetail.setOnClickListener(v -> finish());
+    }
+
+    private void handleRemoveClient() {
+        // Use a tiny threshold (0.001) to avoid Java double floating-point precision issues
+        if (Math.abs(currentBalance) > 0.001) {
+            Toast.makeText(this, "Cannot remove client: Balance must be $0.00", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user == null || clientId == null) return;
+
+        new AlertDialog.Builder(this)
+                .setTitle("Remove Client")
+                .setMessage("Are you sure you want to delete " + clientName + "?")
+                .setPositiveButton("Remove", (dialog, which) -> {
+                    btnRemoveClient.setEnabled(false);
+
+                    db.collection("users").document(user.getUid())
+                            .collection("clients").document(clientId)
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(this, "Client removed", Toast.LENGTH_SHORT).show();
+                                finish(); // Returns to ClientListActivity, which automatically refreshes
+                            })
+                            .addOnFailureListener(e -> {
+                                btnRemoveClient.setEnabled(true);
+                                Toast.makeText(this, "Failed to remove: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     @Override
